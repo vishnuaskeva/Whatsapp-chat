@@ -9,23 +9,35 @@ const messageSchema = new mongoose.Schema(
     sender: {
       type: String,
       required: [true, 'Sender name is required'],
-      trim: true
+      trim: true,
     },
     recipient: {
       type: String,
       required: [true, 'Recipient name is required'],
-      trim: true
+      trim: true,
     },
     content: {
       type: String,
-      required: [true, 'Message content is required'],
-      trim: true
+      trim: true,
+      required() {
+        return this.type === 'text';
+      },
+    },
+    type: {
+      type: String,
+      enum: ['text', 'task'],
+      default: 'text',
+      index: true,
+    },
+    task: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     conversationId: {
       type: String,
       required: true,
-      index: true
-    }
+      index: true,
+    },
   },
   {
     timestamps: true

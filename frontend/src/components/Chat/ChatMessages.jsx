@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Spin, Empty, Typography } from 'antd';
-import MessageBubble from './MessageBubble';
+import ChatMessage from './ChatMessage';
 import bgImage from '../../assets/image.png';
 
 const { Text } = Typography;
@@ -63,7 +63,7 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
         alignItems: 'center',
         backgroundColor: '#ECE5DD'
       }}>
-        <Spin size="large" tip="Loading messages..." />
+        <Spin size="large" />
       </div>
     );
   }
@@ -93,9 +93,10 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
           const previousMessage = index > 0 ? messages[index - 1] : null;
           const senderChanged = !previousMessage || previousMessage.sender !== message.sender;
           const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
+          const messageKey = message._id ? `${message._id}` : `temp-${index}-${message.sender}-${message.createdAt}`;
           
           return (
-            <div key={message._id}>
+            <div key={messageKey}>
               {showDateSeparator && (
                 <div style={{
                   display: 'flex',
@@ -114,8 +115,8 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
                   </Text>
                 </div>
               )}
-              <MessageBubble 
-                message={message} 
+              <ChatMessage
+                message={message}
                 currentUser={currentUser}
                 showSenderName={senderChanged}
               />

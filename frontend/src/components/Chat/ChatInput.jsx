@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Input, Button, Space } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { Input, Button } from 'antd';
+import { SendOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
-const ChatInput = ({ onSendMessage, disabled }) => {
+const ChatInput = ({ onSendMessage, onOpenTaskDraft, disabled }) => {
   const [messageText, setMessageText] = useState('');
 
   const handleSend = () => {
@@ -32,6 +32,14 @@ const ChatInput = ({ onSendMessage, disabled }) => {
       borderTop: '1px solid #e5ddd5',
       gap: '12px'
     }}>
+      <Button
+        type="text"
+        shape="circle"
+        icon={<PlusOutlined style={{ fontSize: '18px', color: '#128C7E' }} />}
+        onClick={onOpenTaskDraft}
+        disabled={disabled}
+      />
+
       <TextArea
         value={messageText}
         onChange={(e) => setMessageText(e.target.value)}
@@ -47,18 +55,16 @@ const ChatInput = ({ onSendMessage, disabled }) => {
           backgroundColor: '#fff'
         }}
         disabled={disabled}
-        bordered={false}
+        variant="borderless"
       />
       
-      <Space size={4}>
-        <Button
-          type="text"
-          shape="circle"
-          icon={<SendOutlined style={{ fontSize: '18px', color: '#25D366' }} />}
-          onClick={handleSend}
-          disabled={disabled}
-        />
-      </Space>
+      <Button
+        type="text"
+        shape="circle"
+        icon={<SendOutlined style={{ fontSize: '18px', color: '#25D366' }} />}
+        onClick={handleSend}
+        disabled={disabled}
+      />
     </div>
   );
 };

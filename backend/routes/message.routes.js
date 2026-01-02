@@ -1,7 +1,12 @@
 import express from 'express';
-import { getConversationMessages, getPersonalNotes, savePersonalNote } from '../controllers/message.controller.js';
+import { createMessage, getConversationMessages, getPersonalNotes, savePersonalNote, setIO } from '../controllers/message.controller.js';
 
 const router = express.Router();
+
+// Initialize IO instance for socket broadcasting
+export const initializeIO = (io) => {
+  setIO(io);
+};
 
 /**
  * GET /api/notes/:username
@@ -20,5 +25,11 @@ router.post('/notes', savePersonalNote);
  * Fetch conversation messages between two participants
  */
 router.get('/', getConversationMessages);
+
+/**
+ * POST /api/messages
+ * Create a new message (text or task)
+ */
+router.post('/', createMessage);
 
 export default router;
