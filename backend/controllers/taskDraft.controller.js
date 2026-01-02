@@ -16,7 +16,6 @@ export const getTaskDraftByOwner = async (req, res) => {
 
     return res.status(200).json(draft);
   } catch (error) {
-    console.error('Error fetching task draft:', error);
     return res.status(500).json({ error: 'Failed to fetch task draft', message: error.message });
   }
 };
@@ -37,7 +36,6 @@ export const upsertTaskDraft = async (req, res) => {
 
     return res.status(200).json(updatedDraft);
   } catch (error) {
-    console.error('Error saving task draft:', error);
     return res.status(500).json({ error: 'Failed to save task draft', message: error.message });
   }
 };

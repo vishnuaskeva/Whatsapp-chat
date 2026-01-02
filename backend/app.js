@@ -25,7 +25,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  // error handler
   res.status(500).json({ 
     error: 'Something went wrong!', 
     message: err.message 

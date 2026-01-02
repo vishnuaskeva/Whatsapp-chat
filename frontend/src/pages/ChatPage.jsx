@@ -74,10 +74,6 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (selectedContact && selectedContact !== currentUser && messagesData) {
-      console.log('Loading messages for conversation:', { currentUser, selectedContact, messageCount: messagesData.length });
-      messagesData.forEach((msg, idx) => {
-        console.log(`  Message ${idx}: type=${msg.type}, sender=${msg.sender}, has_task=${!!msg.task}, has_id=${!!msg._id}`);
-      });
       setMessages(messagesData);
     }
   }, [messagesData, selectedContact, currentUser]);
@@ -169,14 +165,11 @@ const ChatPage = () => {
 
       if (conversationId && messageConvId === conversationId) {
         setMessages((prev) => {
-          console.log('Received message via socket:', { type: message.type, sender: message.sender, has_task: !!message.task, has_id: !!message._id });
-          
           // Check if message already exists by _id (most reliable check)
           if (message._id && prev.some((m) => m._id === message._id)) {
-            console.log('Message already exists by _id, skipping:', message._id);
             return prev;
           }
-          
+
           // Check if we already added this message locally (before DB response)
           // For task messages, check: type, sender, recipient, and that it doesn't have _id yet
           if (message.type === 'task') {
@@ -189,11 +182,10 @@ const ChatPage = () => {
                 m.task?.title === message.task?.title
             );
             if (isDuplicate) {
-              console.log('Task message is duplicate (added locally before DB response), skipping');
               return prev;
             }
           }
-          
+
           // For text messages, check sender + recipient + type + content
           if (message.type === 'text') {
             const isDuplicate = prev.some(
@@ -205,12 +197,10 @@ const ChatPage = () => {
                 !m._id // Local message won't have _id
             );
             if (isDuplicate) {
-              console.log('Text message is duplicate (added locally before DB response), skipping');
               return prev;
             }
           }
-          
-          console.log('Adding new message to state:', { type: message.type, sender: message.sender, _id: message._id });
+
           return [...prev, message];
         });
       } else {
@@ -324,15 +314,7 @@ const ChatPage = () => {
       createdAt: new Date().toISOString(),
     };
 
-    console.log('🚀 FRONTEND: Sending task message:', {
-      sender: outgoing.sender,
-      recipient: outgoing.recipient,
-      type: outgoing.type,
-      conversationId: outgoing.conversationId,
-      hasTask: !!outgoing.task,
-      taskTitle: outgoing.task?.title,
-      taskScreensCount: outgoing.task?.screens?.length
-    });
+    // sending task message
 
     setMessages((prev) => [...prev, outgoing]);
     

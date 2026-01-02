@@ -14,7 +14,6 @@ export const handleUpload = (req, res) => {
       size,
     });
   } catch (error) {
-    console.error('Upload error:', error);
     return res.status(500).json({ error: 'Failed to upload file', details: error.message });
   }
 };

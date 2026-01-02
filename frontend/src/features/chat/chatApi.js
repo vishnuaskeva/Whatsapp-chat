@@ -14,15 +14,6 @@ export const chatApi = createApi({
         params: { participant1, participant2 },
       }),
       transformResponse: (response) => {
-        console.log('🌐 API RESPONSE: Received from backend:', {
-          totalMessages: response.length,
-          taskMessages: response.filter(m => m.type === 'task').length
-        });
-        response.forEach((msg, idx) => {
-          if (msg.type === 'task') {
-            console.log(`  🎯 API Task ${idx}: has_task_field=${!!msg.task}, title=${msg.task?.title}`);
-          }
-        });
         return response;
       },
       providesTags: (result, error, arg) => [

@@ -8,7 +8,6 @@ const router = express.Router();
 const uploadMiddleware = (req, res, next) => {
   uploader.single('file')(req, res, (err) => {
     if (err) {
-      console.error('Multer error:', err);
       return res.status(400).json({ error: 'File upload failed', details: err.message });
     }
     next();

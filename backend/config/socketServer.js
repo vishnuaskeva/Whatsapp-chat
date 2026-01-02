@@ -17,14 +17,12 @@ const setupSocket = (server) => {
 
   // Handle socket connections
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
-
     // Initialize chat events
     chatEvents(io, socket);
 
     // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.id}`);
+      // user disconnected
     });
   });
 

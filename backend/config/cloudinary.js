@@ -7,8 +7,7 @@ dotenv.config();
 
 // Verify Cloudinary credentials are set
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-  console.error('ERROR: Cloudinary credentials not set in .env file');
-  console.error('Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET');
+  // Cloudinary credentials not set - uploads may fail
 }
 
 cloudinary.config({

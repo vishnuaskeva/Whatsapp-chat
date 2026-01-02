@@ -90,7 +90,6 @@ const FieldEditor = ({ field, screenId }) => {
       handleConfigChange('uploadedFile', uploadInfo);
       message.success('File uploaded successfully');
     } catch (error) {
-      console.error('Upload error:', error);
       message.error('Failed to upload file');
     } finally {
       setUploading(false);
