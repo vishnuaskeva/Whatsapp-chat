@@ -83,17 +83,18 @@ const ChatListItem = ({ contactName, active, onSelect, unreadCount = 0, lastMess
             </Text>
             {unreadCount > 0 && (
               <div style={{
-                minWidth: '20px',
-                height: '20px',
-                borderRadius: '10px',
+                minWidth: '22px',
+                height: '22px',
+                borderRadius: '50%',
                 backgroundColor: '#25D366',
                 color: '#fff',
-                fontSize: '12px',
-                fontWeight: '500',
+                fontSize: '11px',
+                fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '0 6px'
+                padding: '0',
+                boxShadow: '0 2px 4px rgba(37, 211, 102, 0.3)'
               }}>
                 {unreadCount}
               </div>

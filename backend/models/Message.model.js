@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 /**
  * Message Schema
@@ -8,25 +8,25 @@ const messageSchema = new mongoose.Schema(
   {
     sender: {
       type: String,
-      required: [true, 'Sender name is required'],
+      required: [true, "Sender name is required"],
       trim: true,
     },
     recipient: {
       type: String,
-      required: [true, 'Recipient name is required'],
+      required: [true, "Recipient name is required"],
       trim: true,
     },
     content: {
       type: String,
       trim: true,
       required() {
-        return this.type === 'text';
+        return this.type === "text";
       },
     },
     type: {
       type: String,
-      enum: ['text', 'task'],
-      default: 'text',
+      enum: ["text", "task"],
+      default: "text",
       index: true,
     },
     task: {
@@ -40,11 +40,11 @@ const messageSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
-const Message = mongoose.model('Message', messageSchema);
+const Message = mongoose.model("Message", messageSchema);
 
 /**
  * PersonalNote Schema
@@ -54,21 +54,21 @@ const personalNoteSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: [true, 'Username is required'],
+      required: [true, "Username is required"],
       trim: true,
-      index: true
+      index: true,
     },
     content: {
       type: String,
-      required: [true, 'Note content is required'],
-      trim: true
-    }
+      required: [true, "Note content is required"],
+      trim: true,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
-const PersonalNote = mongoose.model('PersonalNote', personalNoteSchema);
+const PersonalNote = mongoose.model("PersonalNote", personalNoteSchema);
 
 export { Message as default, PersonalNote };

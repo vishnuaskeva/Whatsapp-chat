@@ -1,4 +1,4 @@
-import { io } from 'socket.io-client';
+import { io } from "socket.io-client";
 
 /**
  * Initialize Socket.IO client connection
@@ -8,7 +8,7 @@ const socket = io(import.meta.env.VITE_SOCKET_URL, {
   autoConnect: false, // Manual connection control
   reconnection: true,
   reconnectionDelay: 1000,
-  reconnectionAttempts: 5
+  reconnectionAttempts: 5,
 });
 
 export default socket;

@@ -1,24 +1,29 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Layout, notification, Button, Space } from 'antd';
-import { useSocket } from '../context/SocketContext';
-import { useAppDispatch } from '../app/hooks';
+import { useState, useEffect, useMemo } from "react";
+import { Layout, notification, Button, Space } from "antd";
+import { useSocket } from "../context/SocketContext";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
 import {
   useGetMessagesQuery,
   useGetPersonalNotesQuery,
   useSendMessageMutation,
   useSavePersonalNoteMutation,
-} from '../features/chat/chatApi';
-import { openTaskDraft } from '../features/taskDraft/taskDraftSlice';
-import Sidebar from '../components/Sidebar/Sidebar';
-import ChatHeader from '../components/Chat/ChatHeader';
-import ChatMessages from '../components/Chat/ChatMessages';
-import ChatInput from '../components/Chat/ChatInput';
-import TaskDraftModal from '../components/taskDraft/TaskDraftModal';
+} from "../features/chat/chatApi";
+import { openTaskDraft } from "../features/taskDraft/taskDraftSlice";
+import {
+  useMarkNotificationsReadMutation,
+  useGetNotificationsQuery,
+} from "../features/notifications/notificationApi";
+import { markNotificationsRead } from "../features/notifications/notificationSlice";
+import Sidebar from "../components/Sidebar/Sidebar";
+import ChatHeader from "../components/Chat/ChatHeader";
+import ChatMessages from "../components/Chat/ChatMessages";
+import ChatInput from "../components/Chat/ChatInput";
+import TaskDraftModal from "../components/taskDraft/TaskDraftModal";
 
 const { Content } = Layout;
-const USERS = ['Alice', 'Bob', 'Charlie'];
+const USERS = ["Alice", "Bob", "Charlie"];
 
-const buildConversationId = (a, b) => [a, b].sort().join('::');
+const buildConversationId = (a, b) => [a, b].sort().join("::");
 
 const ChatPage = () => {
   const dispatch = useAppDispatch();
@@ -33,7 +38,7 @@ const ChatPage = () => {
 
   const availableContacts = useMemo(
     () => USERS.filter((user) => user !== currentUser),
-    [currentUser],
+    [currentUser]
   );
 
   const conversationId = useMemo(() => {
@@ -41,23 +46,26 @@ const ChatPage = () => {
     return buildConversationId(currentUser, selectedContact);
   }, [currentUser, selectedContact]);
 
-  const {
-    data: messagesData,
-    isLoading: isMessagesLoading,
-  } = useGetMessagesQuery(
-    { participant1: currentUser, participant2: selectedContact },
-    { skip: !currentUser || !selectedContact || selectedContact === currentUser },
-  );
+  const { data: messagesData, isLoading: isMessagesLoading } =
+    useGetMessagesQuery(
+      { participant1: currentUser, participant2: selectedContact },
+      {
+        skip:
+          !currentUser || !selectedContact || selectedContact === currentUser,
+      }
+    );
 
-  const {
-    data: notesData,
-    isLoading: isNotesLoading,
-  } = useGetPersonalNotesQuery(currentUser, {
-    skip: !currentUser || selectedContact !== currentUser,
-  });
+  const { data: notesData, isLoading: isNotesLoading } =
+    useGetPersonalNotesQuery(currentUser, {
+      skip: !currentUser || selectedContact !== currentUser,
+    });
 
   const [sendMessageMutation] = useSendMessageMutation();
   const [savePersonalNote] = useSavePersonalNoteMutation();
+  const [markNotificationsReadMutation] = useMarkNotificationsReadMutation();
+  const { data: notificationsData } = useGetNotificationsQuery(currentUser, {
+    skip: !currentUser,
+  });
 
   useEffect(() => {
     if (selectedContact === currentUser && notesData) {
@@ -66,8 +74,8 @@ const ChatPage = () => {
           ...note,
           sender: currentUser,
           recipient: currentUser,
-          type: 'text',
-        })),
+          type: "text",
+        }))
       );
     }
   }, [notesData, selectedContact, currentUser]);
@@ -77,6 +85,42 @@ const ChatPage = () => {
       setMessages(messagesData);
     }
   }, [messagesData, selectedContact, currentUser]);
+
+  // Mark notifications as read when viewing a conversation
+  useEffect(() => {
+    if (
+      !currentUser ||
+      !selectedContact ||
+      selectedContact === currentUser ||
+      !notificationsData
+    )
+      return;
+
+    // Get unread notifications from selectedContact
+    const unreadNotifications = (notificationsData.notifications || []).filter(
+      (n) => !n.read && n.actor === selectedContact && n.owner === currentUser
+    );
+
+    if (unreadNotifications.length > 0) {
+      const ids = unreadNotifications.map((n) => n._id);
+      markNotificationsReadMutation({ owner: currentUser, ids })
+        .then(() => {
+          dispatch(markNotificationsRead({ owner: currentUser, ids }));
+          console.log(
+            `✅ Marked ${ids.length} notifications as read for ${selectedContact}`
+          );
+        })
+        .catch((err) => {
+          console.error("Failed to mark notifications as read:", err);
+        });
+    }
+  }, [
+    currentUser,
+    selectedContact,
+    notificationsData,
+    markNotificationsReadMutation,
+    dispatch,
+  ]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -105,7 +149,11 @@ const ChatPage = () => {
       });
     }
 
-    if (selectedContact !== currentUser && messagesData && messagesData.length > 0) {
+    if (
+      selectedContact !== currentUser &&
+      messagesData &&
+      messagesData.length > 0
+    ) {
       const lastMsg = messagesData[messagesData.length - 1];
       setLastMessagesPerUser((prev) => {
         const userMessages = prev[currentUser] || {};
@@ -172,10 +220,10 @@ const ChatPage = () => {
 
           // Check if we already added this message locally (before DB response)
           // For task messages, check: type, sender, recipient, and that it doesn't have _id yet
-          if (message.type === 'task') {
+          if (message.type === "task") {
             const isDuplicate = prev.some(
               (m) =>
-                m.type === 'task' &&
+                m.type === "task" &&
                 m.sender === message.sender &&
                 m.recipient === message.recipient &&
                 !m._id && // Local message won't have _id
@@ -187,12 +235,12 @@ const ChatPage = () => {
           }
 
           // For text messages, check sender + recipient + type + content
-          if (message.type === 'text') {
+          if (message.type === "text") {
             const isDuplicate = prev.some(
               (m) =>
                 m.sender === message.sender &&
                 m.recipient === message.recipient &&
-                m.type === 'text' &&
+                m.type === "text" &&
                 m.content === message.content &&
                 !m._id // Local message won't have _id
             );
@@ -217,10 +265,10 @@ const ChatPage = () => {
       }
     };
 
-    socket.on('receive_message', handleReceiveMessage);
+    socket.on("receive_message", handleReceiveMessage);
 
     return () => {
-      socket.off('receive_message', handleReceiveMessage);
+      socket.off("receive_message", handleReceiveMessage);
     };
   }, [socket, currentUser, conversationId]);
 
@@ -229,12 +277,15 @@ const ChatPage = () => {
 
     if (selectedContact === currentUser) {
       try {
-        const savedNote = await savePersonalNote({ username: currentUser, content }).unwrap();
+        const savedNote = await savePersonalNote({
+          username: currentUser,
+          content,
+        }).unwrap();
         const transformedNote = {
           ...savedNote,
           sender: currentUser,
           recipient: currentUser,
-          type: 'text',
+          type: "text",
         };
         setMessages((prev) => [...prev, transformedNote]);
         setLastMessagesPerUser((prev) => {
@@ -259,9 +310,9 @@ const ChatPage = () => {
         });
       } catch (err) {
         notification.error({
-          message: 'Error',
-          description: 'Failed to save note',
-          placement: 'topRight',
+          message: "Error",
+          description: "Failed to save note",
+          placement: "topRight",
         });
       }
       return;
@@ -271,13 +322,13 @@ const ChatPage = () => {
       sender: currentUser,
       recipient: selectedContact,
       content,
-      type: 'text',
+      type: "text",
       conversationId,
       createdAt: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, outgoing]);
-    
+
     setLastMessagesPerUser((prev) => {
       const userMessages = prev[currentUser] || {};
       return {
@@ -299,7 +350,7 @@ const ChatPage = () => {
       };
     });
 
-    socket.emit('send_message', outgoing);
+    socket.emit("send_message", outgoing);
   };
 
   const handleTaskSubmit = async (task) => {
@@ -308,7 +359,7 @@ const ChatPage = () => {
     const outgoing = {
       sender: currentUser,
       recipient: selectedContact,
-      type: 'task',
+      type: "task",
       task,
       conversationId,
       createdAt: new Date().toISOString(),
@@ -317,14 +368,14 @@ const ChatPage = () => {
     // sending task message
 
     setMessages((prev) => [...prev, outgoing]);
-    
+
     setLastMessagesPerUser((prev) => {
       const userMessages = prev[currentUser] || {};
       return {
         ...prev,
         [currentUser]: {
           ...userMessages,
-          [selectedContact]: 'Task draft',
+          [selectedContact]: "Task draft",
         },
       };
     });
@@ -339,7 +390,7 @@ const ChatPage = () => {
       };
     });
 
-    socket.emit('send_message', outgoing);
+    socket.emit("send_message", outgoing);
   };
 
   const handleSwitchUser = (user) => {
@@ -367,35 +418,54 @@ const ChatPage = () => {
   };
 
   const loading = isMessagesLoading || isNotesLoading;
-  const unreadCounts = unreadCountsPerUser[currentUser] || {};
+  
+  // Get unread counts from Redux notifications
+  const reduxUnreadCounts = useAppSelector((state) => state.notifications?.unreadCounts || {});
+  
+  // Merge Redux notification unread counts with local state
+  const mergedUnreadCounts = {
+    ...unreadCountsPerUser[currentUser] || {},
+    ...reduxUnreadCounts[currentUser] || {}
+  };
+  
+  const unreadCounts = mergedUnreadCounts;
   const lastMessages = lastMessagesPerUser[currentUser] || {};
   const messageTimestamps = messageTimestampsPerUser[currentUser] || {};
 
   return (
-    <Layout style={{ height: '100vh', backgroundColor: '#fff' }}>
+    <Layout style={{ height: "100vh", backgroundColor: "#fff" }}>
       <div
         style={{
-          padding: '12px 16px',
-          backgroundColor: '#075E54',
-          display: 'flex',
-          gap: '8px',
-          justifyContent: 'center',
-          borderBottom: '1px solid #128C7E',
+          padding: "12px 16px",
+          backgroundColor: "#075E54",
+          display: "flex",
+          gap: "8px",
+          justifyContent: "center",
+          borderBottom: "1px solid #128C7E",
         }}
       >
-        <span style={{ color: '#fff', fontSize: '12px', paddingTop: '4px', fontWeight: '500' }}>Switch User:</span>
+        <span
+          style={{
+            color: "#fff",
+            fontSize: "12px",
+            paddingTop: "4px",
+            fontWeight: "500",
+          }}
+        >
+          Switch User:
+        </span>
         <Space size="small">
           {USERS.map((user) => (
             <Button
               key={user}
               size="small"
-              type={currentUser === user ? 'primary' : 'default'}
+              type={currentUser === user ? "primary" : "default"}
               onClick={() => handleSwitchUser(user)}
               style={{
-                backgroundColor: currentUser === user ? '#25D366' : '#fff',
-                color: currentUser === user ? '#fff' : '#000',
-                borderColor: currentUser === user ? '#25D366' : '#ccc',
-                fontWeight: currentUser === user ? '600' : '400',
+                backgroundColor: currentUser === user ? "#25D366" : "#fff",
+                color: currentUser === user ? "#fff" : "#000",
+                borderColor: currentUser === user ? "#25D366" : "#ccc",
+                fontWeight: currentUser === user ? "600" : "400",
               }}
             >
               {user}
@@ -404,7 +474,7 @@ const ChatPage = () => {
         </Space>
       </div>
 
-      <Layout style={{ height: 'calc(100vh - 50px)', backgroundColor: '#fff' }}>
+      <Layout style={{ height: "calc(100vh - 50px)", backgroundColor: "#fff" }}>
         <Sidebar
           currentUser={currentUser}
           contacts={availableContacts}
@@ -415,12 +485,12 @@ const ChatPage = () => {
           messageTimestamps={messageTimestamps}
         />
         <Layout>
-          <ChatHeader contactName={selectedContact} />
+          <ChatHeader contactName={selectedContact} currentUser={currentUser} />
           <Content
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: 'calc(100vh - 64px)',
+              display: "flex",
+              flexDirection: "column",
+              height: "calc(100vh - 64px)",
             }}
           >
             <ChatMessages

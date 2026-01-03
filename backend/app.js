@@ -1,34 +1,38 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import messageRoutes from './routes/message.routes.js';
-import uploadRoutes from './routes/upload.routes.js';
-import taskDraftRoutes from './routes/taskDraft.routes.js';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import messageRoutes from "./routes/message.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
+import taskDraftRoutes from "./routes/taskDraft.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-app.use('/api/messages', messageRoutes);
-app.use('/api/uploads', uploadRoutes);
-app.use('/api/task-drafts', taskDraftRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/task-drafts", taskDraftRoutes);
+app.use("/api/notifications", notificationRoutes);
 
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Server is running' });
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "Server is running" });
 });
 
 app.use((err, req, res, next) => {
   // error handler
-  res.status(500).json({ 
-    error: 'Something went wrong!', 
-    message: err.message 
+  res.status(500).json({
+    error: "Something went wrong!",
+    message: err.message,
   });
 });
 

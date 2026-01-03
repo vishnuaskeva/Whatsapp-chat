@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { Spin, Empty, Typography } from 'antd';
-import ChatMessage from './ChatMessage';
-import bgImage from '../../assets/image.png';
+import { useEffect, useRef } from "react";
+import { Spin, Empty, Typography } from "antd";
+import ChatMessage from "./ChatMessage";
+import bgImage from "../../assets/image.png";
 
 const { Text } = Typography;
 
@@ -9,7 +9,7 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const getDateLabel = (timestamp) => {
@@ -18,19 +18,34 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const messageDateOnly = new Date(messageDate.getFullYear(), messageDate.getMonth(), messageDate.getDate());
-    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    const messageDateOnly = new Date(
+      messageDate.getFullYear(),
+      messageDate.getMonth(),
+      messageDate.getDate()
+    );
+    const todayOnly = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const yesterdayOnly = new Date(
+      yesterday.getFullYear(),
+      yesterday.getMonth(),
+      yesterday.getDate()
+    );
 
     if (messageDateOnly.getTime() === todayOnly.getTime()) {
-      return 'Today';
+      return "Today";
     } else if (messageDateOnly.getTime() === yesterdayOnly.getTime()) {
-      return 'Yesterday';
+      return "Yesterday";
     } else {
-      return messageDate.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      return messageDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year:
+          messageDate.getFullYear() !== today.getFullYear()
+            ? "numeric"
+            : undefined,
       });
     }
   };
@@ -42,13 +57,15 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
 
   if (!selectedContact) {
     return (
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#E5DDD5'
-      }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#E5DDD5",
+        }}
+      >
         <Empty description="Select a contact to start chatting" />
       </div>
     );
@@ -56,61 +73,77 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
 
   if (loading) {
     return (
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#ECE5DD'
-      }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#ECE5DD",
+        }}
+      >
         <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div style={{
-      flex: 1,
-      overflowY: 'auto',
-      padding: '16px',
-      backgroundImage: `url(${bgImage})`,
-      backgroundSize: '500px 500px',
-      backgroundRepeat: 'repeat',
-      backgroundAttachment: 'scroll'
-    }}>
+    <div
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "16px",
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: "500px 500px",
+        backgroundRepeat: "repeat",
+        backgroundAttachment: "scroll",
+      }}
+    >
       {messages.length === 0 ? (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%'
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100%",
+          }}
+        >
           <Empty description="No messages yet. Start the conversation!" />
         </div>
       ) : (
         messages.map((message, index) => {
           // Check if sender changed from previous message
           const previousMessage = index > 0 ? messages[index - 1] : null;
-          const senderChanged = !previousMessage || previousMessage.sender !== message.sender;
-          const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
-          const messageKey = message._id ? `${message._id}` : `temp-${index}-${message.sender}-${message.createdAt}`;
-          
+          const senderChanged =
+            !previousMessage || previousMessage.sender !== message.sender;
+          const showDateSeparator = shouldShowDateSeparator(
+            message,
+            previousMessage
+          );
+          const messageKey = message._id
+            ? `${message._id}`
+            : `temp-${index}-${message.sender}-${message.createdAt}`;
+
           return (
             <div key={messageKey}>
               {showDateSeparator && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  marginTop: index === 0 ? '8px' : '16px',
-                  marginBottom: '16px'
-                }}>
-                  <Text style={{
-                    fontSize: '12px',
-                    color: '#999',
-                    backgroundColor: '#f0f0f0',
-                    padding: '4px 8px',
-                    borderRadius: '12px'
-                  }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: index === 0 ? "8px" : "16px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: "12px",
+                      color: "#999",
+                      backgroundColor: "#f0f0f0",
+                      padding: "4px 8px",
+                      borderRadius: "12px",
+                    }}
+                  >
                     {getDateLabel(message.createdAt)}
                   </Text>
                 </div>

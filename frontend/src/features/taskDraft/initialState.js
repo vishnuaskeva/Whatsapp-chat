@@ -1,20 +1,20 @@
-export const createEmptyField = (type = 'text') => ({
+export const createEmptyField = (type = "text") => ({
   id: crypto.randomUUID(),
   type,
-  label: '',
+  label: "",
   required: false,
   config: {
-    inputType: 'text',
+    inputType: "text",
     options: [],
     multiple: false,
-    fileType: 'image',
-    fileUrl: '',
+    fileType: "image",
+    fileUrl: "",
   },
 });
 
 export const createEmptyScreen = () => ({
   id: crypto.randomUUID(),
-  title: 'Untitled Screen',
+  title: "Untitled Screen",
   fields: [],
 });
 
@@ -23,14 +23,14 @@ export const createInitialTaskDraft = () => {
   return {
     isOpen: false,
     task: {
-      title: '',
+      title: "",
       screens: [
         {
           id: firstScreenId,
-          title: 'Screen 1',
-          fields: []
-        }
-      ]
+          title: "Screen 1",
+          fields: [],
+        },
+      ],
     },
     activeScreenId: firstScreenId,
   };

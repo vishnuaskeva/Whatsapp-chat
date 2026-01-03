@@ -73,17 +73,23 @@ const Sidebar = ({ currentUser, contacts, selectedContact, onSelectContact, unre
       {/* Contacts List */}
       <List
         dataSource={filteredContacts}
-        renderItem={(name) => (
-          <ChatListItem 
-            key={name}
-            contactName={name}
-            active={name === selectedContact}
-            onSelect={() => onSelectContact(name)}
-            unreadCount={unreadCounts?.[name] || 0}
-            lastMessage={lastMessages?.[name] || ''}
-            messageTimestamp={messageTimestamps?.[name]}
-          />
-        )}
+        renderItem={(name) => {
+          // unreadCounts may be a number or an object of per-actor counts
+          const raw = unreadCounts?.[name];
+          const unreadCount = typeof raw === 'number' ? raw : (raw && typeof raw === 'object' ? Object.values(raw).reduce((s, v) => s + (Number(v) || 0), 0) : 0);
+
+          return (
+            <ChatListItem 
+              key={name}
+              contactName={name}
+              active={name === selectedContact}
+              onSelect={() => onSelectContact(name)}
+              unreadCount={unreadCount}
+              lastMessage={lastMessages?.[name] || ''}
+              messageTimestamp={messageTimestamps?.[name]}
+            />
+          );
+        }}
         locale={{ emptyText: 'No contacts available' }}
         style={{ 
           flex: 1, 

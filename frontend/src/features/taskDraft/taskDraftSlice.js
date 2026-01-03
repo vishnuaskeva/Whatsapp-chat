@@ -1,8 +1,11 @@
-import { createSlice } from '@reduxjs/toolkit';
-import initialTaskDraftState, { createEmptyScreen, createEmptyField } from './initialState';
+import { createSlice } from "@reduxjs/toolkit";
+import initialTaskDraftState, {
+  createEmptyScreen,
+  createEmptyField,
+} from "./initialState";
 
 const taskDraftSlice = createSlice({
-  name: 'taskDraft',
+  name: "taskDraft",
   initialState: initialTaskDraftState,
   reducers: {
     openTaskDraft: (state) => {
@@ -21,8 +24,12 @@ const taskDraftSlice = createSlice({
       const { task } = action.payload || {};
       if (!task || !task.screens?.length) return;
       state.task = task;
-      const hasActiveScreen = task.screens.some((screen) => screen.id === state.activeScreenId);
-      state.activeScreenId = hasActiveScreen ? state.activeScreenId : task.screens[0].id;
+      const hasActiveScreen = task.screens.some(
+        (screen) => screen.id === state.activeScreenId
+      );
+      state.activeScreenId = hasActiveScreen
+        ? state.activeScreenId
+        : task.screens[0].id;
     },
     updateTaskTitle: (state, action) => {
       state.task.title = action.payload;
@@ -63,7 +70,9 @@ const taskDraftSlice = createSlice({
     },
     deleteScreen: (state, action) => {
       const screenId = action.payload;
-      const screenIndex = state.task.screens.findIndex((s) => s.id === screenId);
+      const screenIndex = state.task.screens.findIndex(
+        (s) => s.id === screenId
+      );
       if (screenIndex === -1) return;
       state.task.screens.splice(screenIndex, 1);
       // If deleted screen was active, switch to the first screen

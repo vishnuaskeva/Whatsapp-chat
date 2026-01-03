@@ -1,10 +1,10 @@
-import { Flex, Input, Button } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { updateScreenTitle } from '../../features/taskDraft/taskDraftSlice';
-import { selectTaskDraft } from '../../features/taskDraft/selectors';
-import AddFieldMenu from './AddFieldMenu';
-import FieldEditor from './FieldEditor';
+import { Flex, Input, Button } from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { updateScreenTitle } from "../../features/taskDraft/taskDraftSlice";
+import { selectTaskDraft } from "../../features/taskDraft/selectors";
+import AddFieldMenu from "./AddFieldMenu";
+import FieldEditor from "./FieldEditor";
 
 const ScreenEditor = ({ activeScreenId }) => {
   const dispatch = useAppDispatch();
@@ -20,19 +20,33 @@ const ScreenEditor = ({ activeScreenId }) => {
   };
 
   return (
-    <Flex vertical gap={12} style={{ maxHeight: 500, overflowY: 'auto', paddingRight: 8 }}>
+    <Flex
+      vertical
+      gap={12}
+      style={{ maxHeight: 500, overflowY: "auto", paddingRight: 8 }}
+    >
       <div>
-        <label style={{ display: 'block', marginBottom: '4px', fontSize: 13, fontWeight: 500, color: '#075E54' }}>Screen title</label>
+        <label
+          style={{
+            display: "block",
+            marginBottom: "4px",
+            fontSize: 13,
+            fontWeight: 500,
+            color: "#075E54",
+          }}
+        >
+          Screen title
+        </label>
         <Input
           placeholder="Screen title"
           value={activeScreen.title}
           onChange={(e) => handleScreenTitleChange(e.target.value)}
-          style={{ borderColor: '#e5ddd5' }}
+          style={{ borderColor: "#e5ddd5" }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = '#25D366';
+            e.currentTarget.style.borderColor = "#25D366";
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = '#e5ddd5';
+            e.currentTarget.style.borderColor = "#e5ddd5";
           }}
         />
       </div>
@@ -42,7 +56,11 @@ const ScreenEditor = ({ activeScreenId }) => {
       {activeScreen.fields.length > 0 && (
         <div>
           {activeScreen.fields.map((field) => (
-            <FieldEditor key={field.id} field={field} screenId={activeScreenId} />
+            <FieldEditor
+              key={field.id}
+              field={field}
+              screenId={activeScreenId}
+            />
           ))}
         </div>
       )}

@@ -1,7 +1,7 @@
 export const handleUpload = (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: "No file uploaded" });
     }
 
     const { path, filename, originalname, mimetype, size } = req.file;
@@ -14,7 +14,9 @@ export const handleUpload = (req, res) => {
       size,
     });
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to upload file', details: error.message });
+    return res
+      .status(500)
+      .json({ error: "Failed to upload file", details: error.message });
   }
 };
 

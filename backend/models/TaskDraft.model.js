@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const taskDraftSchema = new mongoose.Schema(
   {
@@ -16,9 +16,9 @@ const taskDraftSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
-const TaskDraft = mongoose.model('TaskDraft', taskDraftSchema);
+const TaskDraft = mongoose.model("TaskDraft", taskDraftSchema);
 
 export default TaskDraft;
