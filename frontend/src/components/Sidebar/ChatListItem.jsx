@@ -2,7 +2,7 @@ import { List, Avatar, Typography } from 'antd';
 
 const { Text } = Typography;
 
-const ChatListItem = ({ contactName, active, onSelect, unreadCount = 0, lastMessage = '', messageTimestamp }) => {
+const ChatListItem = ({ contactName, active, onSelect, unreadCount = 0, lastMessage = '', messageTimestamp, isOnline = false }) => {
   
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Now';
@@ -47,16 +47,33 @@ const ChatListItem = ({ contactName, active, onSelect, unreadCount = 0, lastMess
     >
       <List.Item.Meta
         avatar={(
-          <Avatar 
-            size={56} 
-            style={{ 
-              backgroundColor: '#e0e0e0',
-              color: '#666',
-              fontWeight: 'bold'
-            }}
-          >
-            {contactName.charAt(0).toUpperCase()}
-          </Avatar>
+          <div style={{ position: 'relative' }}>
+            <Avatar 
+              size={56} 
+              style={{ 
+                backgroundColor: '#e0e0e0',
+                color: '#666',
+                fontWeight: 'bold'
+              }}
+            >
+              {contactName.charAt(0).toUpperCase()}
+            </Avatar>
+            {isOnline && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  width: '14px',
+                  height: '14px',
+                  backgroundColor: '#31a24c',
+                  borderRadius: '50%',
+                  border: '2px solid white',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                }}
+              />
+            )}
+          </div>
         )}
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>

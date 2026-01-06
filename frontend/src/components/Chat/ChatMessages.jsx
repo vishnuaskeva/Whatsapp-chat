@@ -1,16 +1,26 @@
 import { useEffect, useRef } from "react";
 import { Spin, Empty, Typography } from "antd";
 import ChatMessage from "./ChatMessage";
+import TypingIndicator from "./TypingIndicator";
 import bgImage from "../../assets/image.png";
 
 const { Text } = Typography;
 
-const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
+const ChatMessages = ({
+  messages,
+  currentUser,
+  loading,
+  selectedContact,
+  typingUsers,
+  onDelete,
+  onForward,
+  onReply,
+}) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, typingUsers]);
 
   const getDateLabel = (timestamp) => {
     const messageDate = new Date(timestamp);
@@ -124,6 +134,10 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
             ? `${message._id}`
             : `temp-${index}-${message.sender}-${message.createdAt}`;
 
+          const replyMessage = message.replyTo
+            ? messages.find((m) => m._id === message.replyTo)
+            : null;
+
           return (
             <div key={messageKey}>
               {showDateSeparator && (
@@ -150,13 +164,18 @@ const ChatMessages = ({ messages, currentUser, loading, selectedContact }) => {
               )}
               <ChatMessage
                 message={message}
+                replyMessage={replyMessage}
                 currentUser={currentUser}
                 showSenderName={senderChanged}
+                onDelete={onDelete}
+                onForward={onForward}
+                onReply={onReply}
               />
             </div>
           );
         })
       )}
+      <TypingIndicator typingUsers={typingUsers} />
       <div ref={messagesEndRef} />
     </div>
   );

@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Layout, notification, Button, Space } from "antd";
+import { Layout, notification, Button, Space, Modal, List } from "antd";
 import { useSocket } from "../context/SocketContext";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import {
   useGetMessagesQuery,
   useGetPersonalNotesQuery,
-  useSendMessageMutation,
   useSavePersonalNoteMutation,
 } from "../features/chat/chatApi";
 import { openTaskDraft } from "../features/taskDraft/taskDraftSlice";
@@ -35,6 +34,11 @@ const ChatPage = () => {
   const [unreadCountsPerUser, setUnreadCountsPerUser] = useState({});
   const [lastMessagesPerUser, setLastMessagesPerUser] = useState({});
   const [messageTimestampsPerUser, setMessageTimestampsPerUser] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
+  const [_replyingTo, set_ReplyingTo] = useState(null);
+  const [forwardModalVisible, setForwardModalVisible] = useState(false);
+  const [forwardingMessageId, setForwardingMessageId] = useState(null);
+  const [userStatusMap, setUserStatusMap] = useState({}); // Track online/last seen per user
 
   const availableContacts = useMemo(
     () => USERS.filter((user) => user !== currentUser),
@@ -45,6 +49,8 @@ const ChatPage = () => {
     if (!currentUser || !selectedContact) return null;
     return buildConversationId(currentUser, selectedContact);
   }, [currentUser, selectedContact]);
+
+  const replyingMessage = _replyingTo ? messages.find((m) => m._id === _replyingTo) : null;
 
   const { data: messagesData, isLoading: isMessagesLoading } =
     useGetMessagesQuery(
@@ -60,7 +66,7 @@ const ChatPage = () => {
       skip: !currentUser || selectedContact !== currentUser,
     });
 
-  const [sendMessageMutation] = useSendMessageMutation();
+  // sendMessageMutation not used here (we use socket), so omit to avoid unused variable
   const [savePersonalNote] = useSavePersonalNoteMutation();
   const [markNotificationsReadMutation] = useMarkNotificationsReadMutation();
   const { data: notificationsData } = useGetNotificationsQuery(currentUser, {
@@ -69,22 +75,68 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (selectedContact === currentUser && notesData) {
-      setMessages(
-        notesData.map((note) => ({
-          ...note,
-          sender: currentUser,
-          recipient: currentUser,
-          type: "text",
-        }))
-      );
+      // avoid synchronous setState inside effect — schedule update asynchronously
+      const toSet = notesData.map((note) => ({
+        ...note,
+        sender: currentUser,
+        recipient: currentUser,
+        type: "text",
+      }));
+      setTimeout(() => setMessages(toSet), 0);
     }
   }, [notesData, selectedContact, currentUser]);
 
+  // Clean up any leftover per-user notes stored in localStorage by older dev runs
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      const key = `${currentUser}_notes`;
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      // ignore localStorage errors (e.g., private mode)
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     if (selectedContact && selectedContact !== currentUser && messagesData) {
-      setMessages(messagesData);
+      const toSet = messagesData;
+      setTimeout(() => setMessages(toSet), 0);
     }
   }, [messagesData, selectedContact, currentUser]);
+
+  // Join/leave conversation room when conversation changes
+  useEffect(() => {
+    if (!socket || !conversationId) return;
+
+    socket.emit("join_conversation", { conversationId });
+
+    return () => {
+      socket.emit("leave_conversation", { conversationId });
+    };
+  }, [socket, conversationId]);
+
+  // Register current user with socket server so online/lastSeen works
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+
+    // Emit immediately if connected
+    try {
+      socket.emit("register_user", currentUser);
+    } catch (err) {
+      void err;
+    }
+
+    const handleConnect = () => {
+      if (currentUser) socket.emit("register_user", currentUser);
+    };
+
+    socket.on("connect", handleConnect);
+    return () => {
+      socket.off("connect", handleConnect);
+    };
+  }, [socket, currentUser]);
 
   // Mark notifications as read when viewing a conversation
   useEffect(() => {
@@ -106,12 +158,10 @@ const ChatPage = () => {
       markNotificationsReadMutation({ owner: currentUser, ids })
         .then(() => {
           dispatch(markNotificationsRead({ owner: currentUser, ids }));
-          console.log(
-            `✅ Marked ${ids.length} notifications as read for ${selectedContact}`
-          );
+          // notifications marked as read
         })
-        .catch((err) => {
-          console.error("Failed to mark notifications as read:", err);
+        .catch(() => {
+          console.error("Failed to mark notifications as read");
         });
     }
   }, [
@@ -127,7 +177,7 @@ const ChatPage = () => {
 
     if (selectedContact === currentUser && notesData && notesData.length > 0) {
       const lastNote = notesData[notesData.length - 1];
-      setLastMessagesPerUser((prev) => {
+      const toMerge = (prev) => {
         const userMessages = prev[currentUser] || {};
         return {
           ...prev,
@@ -136,17 +186,20 @@ const ChatPage = () => {
             [currentUser]: lastNote.content,
           },
         };
-      });
-      setMessageTimestampsPerUser((prev) => {
-        const userTimestamps = prev[currentUser] || {};
-        return {
-          ...prev,
-          [currentUser]: {
-            ...userTimestamps,
-            [currentUser]: lastNote.createdAt,
-          },
-        };
-      });
+      };
+      setTimeout(() => setLastMessagesPerUser(toMerge), 0);
+      setTimeout(() => {
+        setMessageTimestampsPerUser((prev) => {
+          const userTimestamps = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userTimestamps,
+              [currentUser]: lastNote.createdAt,
+            },
+          };
+        });
+      }, 0);
     }
 
     if (
@@ -155,27 +208,29 @@ const ChatPage = () => {
       messagesData.length > 0
     ) {
       const lastMsg = messagesData[messagesData.length - 1];
-      setLastMessagesPerUser((prev) => {
-        const userMessages = prev[currentUser] || {};
-        return {
-          ...prev,
-          [currentUser]: {
-            ...userMessages,
-            [selectedContact]: lastMsg.content,
-          },
-        };
-      });
+      setTimeout(() => {
+        setLastMessagesPerUser((prev) => {
+          const userMessages = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userMessages,
+              [selectedContact]: lastMsg.content,
+            },
+          };
+        });
 
-      setMessageTimestampsPerUser((prev) => {
-        const userTimestamps = prev[currentUser] || {};
-        return {
-          ...prev,
-          [currentUser]: {
-            ...userTimestamps,
-            [selectedContact]: lastMsg.createdAt,
-          },
-        };
-      });
+        setMessageTimestampsPerUser((prev) => {
+          const userTimestamps = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userTimestamps,
+              [selectedContact]: lastMsg.createdAt,
+            },
+          };
+        });
+      }, 0);
     }
   }, [messagesData, notesData, selectedContact, currentUser]);
 
@@ -267,10 +322,130 @@ const ChatPage = () => {
 
     socket.on("receive_message", handleReceiveMessage);
 
+    // Listen for typing indicator
+    const handleTypingIndicator = (data) => {
+      const { username, isTyping } = data;
+      // Don't show typing indicator for current user's own typing
+      if (!username || username === currentUser) return;
+      setTypingUsers((prev) => {
+        if (isTyping) {
+          return { ...prev, [username]: true };
+        } else {
+          const next = { ...prev };
+          delete next[username];
+          return next;
+        }
+      });
+    };
+
+    // Listen for message deleted for me
+    const handleMessageDeletedForMe = (data) => {
+      const { messageId } = data;
+      setMessages((prev) => {
+        const updated = prev.filter((m) => m._id !== messageId);
+        return updated;
+      });
+    };
+
+    // Listen for message deleted for everyone
+    const handleMessageDeletedForEveryone = (data) => {
+      const { messageId } = data;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === messageId ? { ...m, isDeletedEveryone: true } : m
+        )
+      );
+    };
+
+    socket.on("typing_indicator", handleTypingIndicator);
+
+    // Also listen for notification events — update sidebar preview and unread counts
+    const handleSocketNotification = (note) => {
+      try {
+        const actor = note.actor || note.data?.sender;
+        const owner = note.owner; // recipient of the notification
+        // only update when this instance represents the owner (currentUser)
+        if (owner !== currentUser) return;
+
+        const preview = note.body || "";
+        const ts = new Date().toISOString();
+
+        // update last message preview for this contact (actor)
+        setLastMessagesPerUser((prev) => {
+          const userMessages = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userMessages,
+              [actor]: preview,
+            },
+          };
+        });
+
+        // update timestamp
+        setMessageTimestampsPerUser((prev) => {
+          const userTimestamps = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userTimestamps,
+              [actor]: ts,
+            },
+          };
+        });
+
+        // increment unread count for this contact
+        setUnreadCountsPerUser((prev) => {
+          const userCounts = prev[currentUser] || {};
+          return {
+            ...prev,
+            [currentUser]: {
+              ...userCounts,
+              [actor]: (userCounts[actor] || 0) + 1,
+            },
+          };
+        });
+      } catch {
+        // ignore
+      }
+    };
+
+    socket.on("notification", handleSocketNotification);
+    socket.on("message_deleted_for_me", handleMessageDeletedForMe);
+    socket.on("message_deleted_for_everyone", handleMessageDeletedForEveryone);
+
+    // Listen for user status changes
+    const handleUserStatusChanged = (data) => {
+      const { username, isOnline, lastSeen } = data;
+      if (!username) return;
+      setUserStatusMap((prev) => ({
+        ...prev,
+        [username]: { isOnline, lastSeen },
+      }));
+    };
+
+    socket.on("user_status_changed", handleUserStatusChanged);
+
     return () => {
       socket.off("receive_message", handleReceiveMessage);
+      socket.off("notification", handleSocketNotification);
+      socket.off("typing_indicator", handleTypingIndicator);
+      socket.off("message_deleted_for_me", handleMessageDeletedForMe);
+      socket.off(
+        "message_deleted_for_everyone",
+        handleMessageDeletedForEveryone
+      );
+      socket.off("user_status_changed", handleUserStatusChanged);
     };
   }, [socket, currentUser, conversationId]);
+
+  // Refresh UI every minute so last-seen times update without socket events
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUserStatusMap((prev) => ({ ...prev }));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSendMessage = async (content) => {
     if (!selectedContact) return;
@@ -308,7 +483,7 @@ const ChatPage = () => {
             },
           };
         });
-      } catch (err) {
+      } catch {
         notification.error({
           message: "Error",
           description: "Failed to save note",
@@ -324,6 +499,7 @@ const ChatPage = () => {
       content,
       type: "text",
       conversationId,
+      replyTo: _replyingTo || null,
       createdAt: new Date().toISOString(),
     };
 
@@ -351,6 +527,9 @@ const ChatPage = () => {
     });
 
     socket.emit("send_message", outgoing);
+
+    // clear reply state after sending
+    if (_replyingTo) set_ReplyingTo(null);
   };
 
   const handleTaskSubmit = async (task) => {
@@ -417,23 +596,175 @@ const ChatPage = () => {
     dispatch(openTaskDraft());
   };
 
+  const handleDeleteMessage = (messageId, type) => {
+    if (type === "delete_me") {
+      socket?.emit("delete_message_for_me", {
+        messageId,
+        username: currentUser,
+      });
+    } else if (type === "delete_all") {
+      socket?.emit("delete_message_for_everyone", {
+        messageId,
+        sender: currentUser,
+      });
+    }
+  };
+
+  const handleForwardMessage = (messageId) => {
+    setForwardingMessageId(messageId);
+    setForwardModalVisible(true);
+  };
+
+  const handleForwardConfirm = (recipient) => {
+    if (!forwardingMessageId) return;
+
+    const message = messages.find((m) => m._id === forwardingMessageId);
+    if (!message) return;
+
+    socket?.emit("forward_message", {
+      messageId: forwardingMessageId,
+      toRecipient: recipient,
+      fromSender: currentUser,
+    });
+
+    notification.success({
+      message: "Message forwarded",
+      description: `Message forwarded to ${recipient}`,
+      placement: "topRight",
+    });
+
+    setForwardModalVisible(false);
+    setForwardingMessageId(null);
+  };
+
+  const handleReply = (messageId) => {
+    set_ReplyingTo(messageId);
+  };
+
   const loading = isMessagesLoading || isNotesLoading;
-  
+
   // Get unread counts from Redux notifications
-  const reduxUnreadCounts = useAppSelector((state) => state.notifications?.unreadCounts || {});
-  
+  const reduxUnreadCounts = useAppSelector(
+    (state) => state.notifications?.unreadCounts || {}
+  );
+
+  // All notifications from Redux (used to seed sidebar previews)
+  const reduxNotifications = useAppSelector(
+    (state) => state.notifications?.notifications || []
+  );
+
   // Merge Redux notification unread counts with local state
   const mergedUnreadCounts = {
-    ...unreadCountsPerUser[currentUser] || {},
-    ...reduxUnreadCounts[currentUser] || {}
+    ...(unreadCountsPerUser[currentUser] || {}),
+    ...(reduxUnreadCounts[currentUser] || {}),
   };
-  
+
   const unreadCounts = mergedUnreadCounts;
   const lastMessages = lastMessagesPerUser[currentUser] || {};
   const messageTimestamps = messageTimestampsPerUser[currentUser] || {};
 
+  // If notifications are fetched/updated in Redux, seed sidebar previews and unread counts
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!reduxNotifications || reduxNotifications.length === 0) return;
+
+    const notesForOwner = reduxNotifications.filter(
+      (n) => n.owner === currentUser
+    );
+    if (!notesForOwner.length) return;
+
+    const latestByActor = {};
+    const tsByActor = {};
+    const unreadByActor = {};
+
+    notesForOwner.forEach((n) => {
+      const actor = n.actor || n.data?.sender || "unknown";
+      const created = n.createdAt
+        ? new Date(n.createdAt).toISOString()
+        : new Date().toISOString();
+
+      if (!tsByActor[actor] || new Date(created) > new Date(tsByActor[actor])) {
+        latestByActor[actor] = n.body || n.title || "";
+        tsByActor[actor] = created;
+      }
+
+      if (!n.read) {
+        unreadByActor[actor] = (unreadByActor[actor] || 0) + 1;
+      }
+    });
+
+    // merge latest previews/timestamps/unread counts asynchronously to avoid cascading renders
+    setTimeout(() => {
+      setLastMessagesPerUser((prev) => {
+        const userMsgs = prev[currentUser] || {};
+        return {
+          ...prev,
+          [currentUser]: {
+            ...userMsgs,
+            ...latestByActor,
+          },
+        };
+      });
+
+      setMessageTimestampsPerUser((prev) => {
+        const userTs = prev[currentUser] || {};
+        return {
+          ...prev,
+          [currentUser]: {
+            ...userTs,
+            ...tsByActor,
+          },
+        };
+      });
+
+      setUnreadCountsPerUser((prev) => {
+        const userCounts = prev[currentUser] || {};
+        const merged = { ...userCounts };
+        Object.keys(unreadByActor).forEach((actor) => {
+          merged[actor] = Math.max(merged[actor] || 0, unreadByActor[actor]);
+        });
+        return {
+          ...prev,
+          [currentUser]: merged,
+        };
+      });
+    }, 0);
+  }, [reduxNotifications, currentUser]);
+
   return (
     <Layout style={{ height: "100vh", backgroundColor: "#fff" }}>
+      {/* Forward Message Modal */}
+      <Modal
+        title="Forward message to"
+        open={forwardModalVisible}
+        onCancel={() => {
+          setForwardModalVisible(false);
+          setForwardingMessageId(null);
+        }}
+        footer={null}
+        width={300}
+      >
+        <List
+          dataSource={availableContacts}
+          renderItem={(contact) => (
+            <List.Item
+              style={{
+                cursor: "pointer",
+                padding: "8px 0",
+                borderBottom: "1px solid #f0f0f0",
+              }}
+              onClick={() => handleForwardConfirm(contact)}
+            >
+              <div style={{ width: "100%" }}>
+                <div style={{ fontWeight: 500, color: "#075E54" }}>
+                  {contact}
+                </div>
+              </div>
+            </List.Item>
+          )}
+        />
+      </Modal>
+
       <div
         style={{
           padding: "12px 16px",
@@ -483,9 +814,15 @@ const ChatPage = () => {
           unreadCounts={unreadCounts}
           lastMessages={lastMessages}
           messageTimestamps={messageTimestamps}
+          userStatusMap={userStatusMap}
         />
         <Layout>
-          <ChatHeader contactName={selectedContact} currentUser={currentUser} />
+          <ChatHeader 
+            contactName={selectedContact} 
+            currentUser={currentUser}
+            isOnline={selectedContact && userStatusMap[selectedContact]?.isOnline}
+            lastSeen={selectedContact && userStatusMap[selectedContact]?.lastSeen}
+          />
           <Content
             style={{
               display: "flex",
@@ -498,11 +835,20 @@ const ChatPage = () => {
               currentUser={currentUser}
               loading={loading}
               selectedContact={selectedContact}
+              typingUsers={typingUsers}
+              onDelete={handleDeleteMessage}
+              onForward={handleForwardMessage}
+              onReply={handleReply}
             />
             <ChatInput
               onSendMessage={handleSendMessage}
               onOpenTaskDraft={handleOpenTaskDraft}
               disabled={!selectedContact}
+              currentUser={currentUser}
+              selectedContact={selectedContact}
+              conversationId={conversationId}
+              replyingMessage={replyingMessage}
+              onCancelReply={() => set_ReplyingTo(null)}
             />
           </Content>
         </Layout>

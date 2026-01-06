@@ -6,7 +6,7 @@ import ChatListItem from './ChatListItem';
 const { Sider } = Layout;
 const { Title, Text } = Typography;
 
-const Sidebar = ({ currentUser, contacts, selectedContact, onSelectContact, unreadCounts, lastMessages = {}, messageTimestamps = {} }) => {
+const Sidebar = ({ currentUser, contacts, selectedContact, onSelectContact, unreadCounts, lastMessages = {}, messageTimestamps = {}, userStatusMap = {} }) => {
   const [searchText, setSearchText] = useState('');
 
   const filteredContacts = useMemo(() => {
@@ -87,6 +87,7 @@ const Sidebar = ({ currentUser, contacts, selectedContact, onSelectContact, unre
               unreadCount={unreadCount}
               lastMessage={lastMessages?.[name] || ''}
               messageTimestamp={messageTimestamps?.[name]}
+              isOnline={userStatusMap[name]?.isOnline || false}
             />
           );
         }}

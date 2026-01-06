@@ -1,7 +1,15 @@
 import MessageBubble from "./MessageBubble";
 import ChatTaskPreview from "./ChatTaskPreview";
 
-const ChatMessage = ({ message, currentUser, showSenderName }) => {
+const ChatMessage = ({
+  message,
+  replyMessage = null,
+  currentUser,
+  showSenderName,
+  onDelete,
+  onForward,
+  onReply,
+}) => {
   if (message.type === "task") {
     const isSentByCurrentUser = message.sender === currentUser;
     return (
@@ -20,8 +28,12 @@ const ChatMessage = ({ message, currentUser, showSenderName }) => {
   return (
     <MessageBubble
       message={message}
+      replyMessage={replyMessage}
       currentUser={currentUser}
       showSenderName={showSenderName}
+      onDelete={onDelete}
+      onForward={onForward}
+      onReply={onReply}
     />
   );
 };

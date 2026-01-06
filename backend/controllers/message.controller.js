@@ -16,6 +16,8 @@ const persistMessage = async ({
   type = "text",
   task,
   conversationId,
+  replyTo = null,
+  forwardedFrom = null,
 }) => {
   // Use provided conversationId or build from sender/recipient
   const finalConversationId =
@@ -32,6 +34,8 @@ const persistMessage = async ({
     type,
     task: type === "task" ? task : null,
     conversationId: finalConversationId,
+    replyTo,
+    forwardedFrom,
   });
 
   const savedMessage = await message.save();
@@ -169,6 +173,8 @@ export const createMessage = async (req, res) => {
         type: savedMessage.type,
         task: savedMessage.task,
         conversationId: savedMessage.conversationId,
+        replyTo: savedMessage.replyTo || null,
+        forwardedFrom: savedMessage.forwardedFrom || null,
         createdAt: savedMessage.createdAt,
         updatedAt: savedMessage.updatedAt,
       });

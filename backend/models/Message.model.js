@@ -23,6 +23,19 @@ const messageSchema = new mongoose.Schema(
         return this.type === "text";
       },
     },
+    // Optional attachments uploaded to Cloudinary (images, files, etc.)
+    attachments: [
+      {
+        url: { type: String },
+        secureUrl: { type: String },
+        publicId: { type: String },
+        filename: { type: String },
+        mimeType: { type: String },
+        size: { type: Number },
+        resourceType: { type: String }, // 'image' | 'raw' | 'video'
+        provider: { type: String, default: 'cloudinary' },
+      },
+    ],
     type: {
       type: String,
       enum: ["text", "task"],
@@ -37,6 +50,28 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
       index: true,
+    },
+    // Reply-to feature: reference to the message being replied to
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null,
+    },
+    // Delete for me: array of usernames who deleted for themselves
+    deletedFor: {
+      type: [String],
+      default: [],
+    },
+    // Delete for everyone: true if sender deleted for all
+    isDeletedEveryone: {
+      type: Boolean,
+      default: false,
+    },
+    // Forwarded from: reference to original message if forwarded
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null,
     },
   },
   {
