@@ -5,6 +5,7 @@ import {
   getPersonalNotes,
   savePersonalNote,
   setIO,
+  editMessage,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
@@ -37,5 +38,11 @@ router.get("/", getConversationMessages);
  * Create a new message (text or task)
  */
 router.post("/", createMessage);
+
+/**
+ * PUT /api/messages/:messageId/edit
+ * Edit an existing message
+ */
+router.put("/:messageId/edit", editMessage);
 
 export default router;

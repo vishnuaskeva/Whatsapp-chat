@@ -15,9 +15,12 @@ const ChatMessages = ({
   onDelete,
   onForward,
   onReply,
+  onEdit,
 }) => {
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
+  // Auto-scroll to bottom on new messages or typing indicator
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
@@ -170,6 +173,7 @@ const ChatMessages = ({
                 onDelete={onDelete}
                 onForward={onForward}
                 onReply={onReply}
+                onEdit={onEdit}
               />
             </div>
           );

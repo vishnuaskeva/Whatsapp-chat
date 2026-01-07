@@ -189,3 +189,47 @@ export const createMessage = async (req, res) => {
 };
 
 export const saveMessage = persistMessage;
+
+export const editMessage = async (req, res) => {
+  try {
+    const { messageId, content, sender } = req.body;
+
+    if (!messageId || !content || !sender) {
+      return res.status(400).json({
+        error: "Missing fields",
+        message: "messageId, content, and sender are required",
+      });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    // Only sender can edit their message
+    if (message.sender !== sender) {
+      return res.status(403).json({ error: "Only sender can edit message" });
+    }
+
+    message.content = content;
+    message.editedAt = new Date();
+    const updated = await message.save();
+
+    // Emit socket event to notify clients of edited message
+    if (ioInstance) {
+      ioInstance.emit("message_edited", {
+        _id: updated._id,
+        content: updated.content,
+        editedAt: updated.editedAt,
+        conversationId: updated.conversationId,
+      });
+    }
+
+    res.status(200).json(updated);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to edit message",
+      message: error.message,
+    });
+  }
+};

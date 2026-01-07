@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 
-const baseUrl = import.meta.env.VITE_API_URL || "/api";
+const baseUrl = getApiBaseUrl();
 
 export const notificationApi = createApi({
   reducerPath: "notificationApi",

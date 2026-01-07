@@ -6,6 +6,7 @@ import {
   useGetMessagesQuery,
   useGetPersonalNotesQuery,
   useSavePersonalNoteMutation,
+  useEditMessageMutation,
 } from "../features/chat/chatApi";
 import { openTaskDraft } from "../features/taskDraft/taskDraftSlice";
 import {
@@ -68,6 +69,7 @@ const ChatPage = () => {
 
   // sendMessageMutation not used here (we use socket), so omit to avoid unused variable
   const [savePersonalNote] = useSavePersonalNoteMutation();
+  const [editMessageMutation] = useEditMessageMutation();
   const [markNotificationsReadMutation] = useMarkNotificationsReadMutation();
   const { data: notificationsData } = useGetNotificationsQuery(currentUser, {
     skip: !currentUser,
@@ -108,14 +110,18 @@ const ChatPage = () => {
 
   // Join/leave conversation room when conversation changes
   useEffect(() => {
-    if (!socket || !conversationId) return;
+    if (!socket || !conversationId || !currentUser) return;
 
-    socket.emit("join_conversation", { conversationId });
+    // Join conversation and let server know who joined so it can mark delivered
+    socket.emit("join_conversation", { conversationId, username: currentUser });
+
+    // Mark messages in this conversation as read by currentUser
+    socket.emit("mark_as_read", { conversationId, username: currentUser });
 
     return () => {
       socket.emit("leave_conversation", { conversationId });
     };
-  }, [socket, conversationId]);
+  }, [socket, conversationId, currentUser]);
 
   // Register current user with socket server so online/lastSeen works
   useEffect(() => {
@@ -268,6 +274,19 @@ const ChatPage = () => {
 
       if (conversationId && messageConvId === conversationId) {
         setMessages((prev) => {
+          // If server returned a tempId, replace optimistic message
+          if (message.tempId) {
+            let found = false;
+            const replaced = prev.map((m) => {
+              if (m.tempId && m.tempId === message.tempId) {
+                found = true;
+                return message; // replace with authoritative message from server
+              }
+              return m;
+            });
+            if (found) return replaced;
+          }
+
           // Check if message already exists by _id (most reliable check)
           if (message._id && prev.some((m) => m._id === message._id)) {
             return prev;
@@ -349,12 +368,71 @@ const ChatPage = () => {
 
     // Listen for message deleted for everyone
     const handleMessageDeletedForEveryone = (data) => {
-      const { messageId } = data;
+      const { messageId, conversationId } = data;
       setMessages((prev) =>
         prev.map((m) =>
           m._id === messageId ? { ...m, isDeletedEveryone: true } : m
         )
       );
+
+      // Update sidebar: find last non-deleted message in conversation
+      setMessages((prev) => {
+        const lastValidMsg = prev
+          .filter((m) => !m.isDeletedEveryone && m.conversationId === conversationId)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+        if (lastValidMsg) {
+          const contactInMsg = lastValidMsg.sender === currentUser ? lastValidMsg.recipient : lastValidMsg.sender;
+          setLastMessagesPerUser((prevMsgs) => {
+            const userMessages = prevMsgs[currentUser] || {};
+            return {
+              ...prevMsgs,
+              [currentUser]: {
+                ...userMessages,
+                [contactInMsg]: lastValidMsg.content || lastValidMsg.type,
+              },
+            };
+          });
+
+          setMessageTimestampsPerUser((prevTs) => {
+            const userTimestamps = prevTs[currentUser] || {};
+            return {
+              ...prevTs,
+              [currentUser]: {
+                ...userTimestamps,
+                [contactInMsg]: lastValidMsg.createdAt,
+              },
+            };
+          });
+        } else {
+          // No valid messages left, try to remove from sidebar
+          const deletedMsg = prev.find((m) => m._id === messageId);
+          if (deletedMsg) {
+            const contactInMsg = deletedMsg.sender === currentUser ? deletedMsg.recipient : deletedMsg.sender;
+            setLastMessagesPerUser((prevMsgs) => {
+              const userMessages = prevMsgs[currentUser] || {};
+              const updated = { ...userMessages };
+              delete updated[contactInMsg];
+              return {
+                ...prevMsgs,
+                [currentUser]: updated,
+              };
+            });
+
+            setMessageTimestampsPerUser((prevTs) => {
+              const userTimestamps = prevTs[currentUser] || {};
+              const updated = { ...userTimestamps };
+              delete updated[contactInMsg];
+              return {
+                ...prevTs,
+                [currentUser]: updated,
+              };
+            });
+          }
+        }
+
+        return prev;
+      });
     };
 
     socket.on("typing_indicator", handleTypingIndicator);
@@ -414,6 +492,34 @@ const ChatPage = () => {
     socket.on("message_deleted_for_me", handleMessageDeletedForMe);
     socket.on("message_deleted_for_everyone", handleMessageDeletedForEveryone);
 
+    // Listen for message edited events
+    const handleMessageEdited = (data) => {
+      const { _id, content, editedAt } = data;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === _id
+            ? { ...m, content, editedAt }
+            : m
+        )
+      );
+    };
+
+    socket.on("message_edited", handleMessageEdited);
+
+    // Listen for message status updates (sent/delivered/read ticks)
+    const handleMessageStatus = (data) => {
+      const { _id, status } = data;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === _id
+            ? { ...m, status }
+            : m
+        )
+      );
+    };
+
+    socket.on("message_status", handleMessageStatus);
+
     // Listen for user status changes
     const handleUserStatusChanged = (data) => {
       const { username, isOnline, lastSeen } = data;
@@ -435,6 +541,8 @@ const ChatPage = () => {
         "message_deleted_for_everyone",
         handleMessageDeletedForEveryone
       );
+      socket.off("message_edited", handleMessageEdited);
+      socket.off("message_status", handleMessageStatus);
       socket.off("user_status_changed", handleUserStatusChanged);
     };
   }, [socket, currentUser, conversationId]);
@@ -493,6 +601,8 @@ const ChatPage = () => {
       return;
     }
 
+    // optimistic message: create a temporary id so we can replace it when server returns
+    const tempId = `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const outgoing = {
       sender: currentUser,
       recipient: selectedContact,
@@ -501,8 +611,10 @@ const ChatPage = () => {
       conversationId,
       replyTo: _replyingTo || null,
       createdAt: new Date().toISOString(),
+      tempId,
     };
 
+    // Append optimistic message with tempId
     setMessages((prev) => [...prev, outgoing]);
 
     setLastMessagesPerUser((prev) => {
@@ -594,6 +706,31 @@ const ChatPage = () => {
 
   const handleOpenTaskDraft = () => {
     dispatch(openTaskDraft());
+  };
+
+  const handleEditMessage = async (messageId, content) => {
+    try {
+      await editMessageMutation({
+        messageId,
+        content,
+        sender: currentUser,
+      }).unwrap();
+      
+      // Update local message state with edited content and timestamp
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === messageId
+            ? { ...m, content, editedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    } catch (error) {
+      notification.error({
+        message: "Failed to edit message",
+        placement: "topRight",
+      });
+      throw error;
+    }
   };
 
   const handleDeleteMessage = (messageId, type) => {
@@ -839,6 +976,7 @@ const ChatPage = () => {
               onDelete={handleDeleteMessage}
               onForward={handleForwardMessage}
               onReply={handleReply}
+              onEdit={handleEditMessage}
             />
             <ChatInput
               onSendMessage={handleSendMessage}

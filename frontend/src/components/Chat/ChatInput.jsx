@@ -10,6 +10,33 @@ const ChatInput = ({ onSendMessage, onOpenTaskDraft, disabled, currentUser, sele
   const { socket } = useSocket();
   const typingTimeoutRef = useRef(null);
 
+  // Load draft from localStorage on mount or when conversation changes
+  useEffect(() => {
+    if (!selectedContact || !currentUser) return;
+    try {
+      const draftKey = `draft_${currentUser}_${selectedContact}`;
+      const saved = localStorage.getItem(draftKey);
+      if (saved) setMessageText(saved);
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [selectedContact, currentUser]);
+
+  // Save draft to localStorage on every change
+  useEffect(() => {
+    if (!selectedContact || !currentUser) return;
+    try {
+      const draftKey = `draft_${currentUser}_${selectedContact}`;
+      if (messageText.trim()) {
+        localStorage.setItem(draftKey, messageText);
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [messageText, selectedContact, currentUser]);
+
   const handleTyping = (e) => {
     const text = e.target.value;
     setMessageText(text);
@@ -50,6 +77,13 @@ const ChatInput = ({ onSendMessage, onOpenTaskDraft, disabled, currentUser, sele
     if (messageText.trim()) {
       onSendMessage(messageText.trim());
       setMessageText("");
+      // Clear draft from localStorage
+      try {
+        const draftKey = `draft_${currentUser}_${selectedContact}`;
+        localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
       // Emit typing stopped
       if (socket && currentUser && selectedContact && conversationId) {
         socket.emit("user_stopped_typing", { username: currentUser, conversationId });
@@ -86,40 +120,42 @@ const ChatInput = ({ onSendMessage, onOpenTaskDraft, disabled, currentUser, sele
           </div>
         )}
 
-        <Button
-        type="text"
-        shape="circle"
-        onClick={onOpenTaskDraft}
-        disabled={disabled}
-        style={{
-          width: 40,
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 0,
-        }}
-        icon={<PlusOutlined style={{ fontSize: 18, color: "#128C7E", verticalAlign: "middle" }} />}
-      />
+        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+          <Button
+            type="text"
+            shape="circle"
+            onClick={onOpenTaskDraft}
+            disabled={disabled}
+            style={{
+              width: 40,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+            }}
+            icon={<PlusOutlined style={{ fontSize: 18, color: "#128C7E" }} />}
+          />
 
-        <TextArea
-          value={messageText}
-          onChange={handleTyping}
-          onKeyPress={handleKeyPress}
-          placeholder="Type a message..."
-          autoSize={{ minRows: 1, maxRows: 3 }}
-          style={{
-            flex: 1,
-            borderRadius: "20px",
-            padding: "8px 15px",
-            fontSize: "14px",
-            border: "1px solid #ddd",
-            backgroundColor: "#fff",
-            lineHeight: '1.4'
-          }}
-          disabled={disabled}
-          variant="borderless"
-        />
+          <TextArea
+            value={messageText}
+            onChange={handleTyping}
+            onKeyPress={handleKeyPress}
+            placeholder="Type a message..."
+            autoSize={{ minRows: 1, maxRows: 3 }}
+            style={{
+              flex: 1,
+              borderRadius: "20px",
+              padding: "8px 15px",
+              fontSize: "14px",
+              border: "1px solid #ddd",
+              backgroundColor: "#fff",
+              lineHeight: '1.4'
+            }}
+            disabled={disabled}
+            variant="borderless"
+          />
+        </div>
       </div>
 
       <Button

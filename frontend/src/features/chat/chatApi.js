@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { getApiBaseUrl } from "../../utils/apiConfig";
 
-const baseUrl = import.meta.env.VITE_API_URL || "/api";
+const baseUrl = getApiBaseUrl();
 const buildConvId = (a, b) => [a, b].sort().join("::");
 
 export const chatApi = createApi({
@@ -58,6 +59,16 @@ export const chatApi = createApi({
         body: formData,
       }),
     }),
+    editMessage: builder.mutation({
+      query: ({ messageId, content, sender }) => ({
+        url: `/messages/${messageId}/edit`,
+        method: "PUT",
+        body: { content, sender, messageId },
+      }),
+      invalidatesTags: (result, error, arg) => [
+        "Messages",
+      ],
+    }),
   }),
 });
 
@@ -67,6 +78,7 @@ export const {
   useSendMessageMutation,
   useSavePersonalNoteMutation,
   useUploadFileMutation,
+  useEditMessageMutation,
 } = chatApi;
 
 export default chatApi;

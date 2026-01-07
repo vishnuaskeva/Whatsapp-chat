@@ -1,7 +1,7 @@
 import { saveMessage } from "../controllers/message.controller.js";
 import { createNotification } from "../controllers/notification.controller.js";
 
-// Map to track user -> socketId
+// Map to track user -> set of socketIds (supports multiple tabs/devices)
 const userSockets = new Map();
 
 // Map to track user online status and last seen
@@ -20,12 +20,15 @@ const chatEvents = (io, socket) => {
    */
   socket.on("register_user", (username) => {
     if (!username) return;
-    userSockets.set(username, socket.id);
+    // Track multiple sockets per username
+    const sockets = userSockets.get(username) || new Set();
+    sockets.add(socket.id);
+    userSockets.set(username, sockets);
     socket.join(username);
-    
-    // Mark user as online
+
+    // Mark user as online (first connected or additional connection)
     userStatus.set(username, { isOnline: true, lastSeen: new Date().toISOString() });
-    
+
     // Broadcast online status to all clients
     io.emit("user_status_changed", {
       username,
@@ -40,9 +43,39 @@ const chatEvents = (io, socket) => {
    * Payload: { conversationId }
    */
   socket.on("join_conversation", (data) => {
-    const { conversationId } = data || {};
+    const { conversationId, username } = data || {};
     if (!conversationId) return;
     socket.join(conversationId);
+
+    // If a username is provided, mark pending 'sent' messages to this user as 'delivered'
+    // and notify the original senders so their UI can show double ticks.
+    if (username) {
+      (async () => {
+        try {
+          const Message = (await import("../models/Message.model.js")).default;
+          const pending = await Message.find({
+            conversationId,
+            recipient: username,
+            status: "sent",
+          });
+
+          if (pending && pending.length) {
+            for (const msg of pending) {
+              msg.status = "delivered";
+              await msg.save();
+              // Notify the sender's sockets
+              io.to(msg.sender).emit("message_status", {
+                _id: msg._id,
+                status: "delivered",
+                conversationId,
+              });
+            }
+          }
+        } catch (err) {
+          // ignore errors here to avoid crashing socket
+        }
+      })();
+    }
   });
 
   /**
@@ -56,22 +89,62 @@ const chatEvents = (io, socket) => {
     socket.leave(conversationId);
   });
 
+  /**
+   * Mark messages as read in a conversation for a given user
+   * Event: "mark_as_read"
+   * Payload: { conversationId, username }
+   */
+  socket.on("mark_as_read", async (data) => {
+    const { conversationId, username } = data || {};
+    if (!conversationId || !username) return;
+
+    try {
+      const Message = (await import("../models/Message.model.js")).default;
+      const toMark = await Message.find({
+        conversationId,
+        recipient: username,
+        status: { $ne: "read" },
+      });
+
+      if (toMark && toMark.length) {
+        for (const msg of toMark) {
+          msg.status = "read";
+          await msg.save();
+          // notify sender(s)
+          io.to(msg.sender).emit("message_status", {
+            _id: msg._id,
+            status: "read",
+            conversationId,
+          });
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  });
+
   socket.on("disconnect", () => {
-    for (const [user, id] of userSockets.entries()) {
-      if (id === socket.id) {
-        userSockets.delete(user);
-        
-        // Mark user as offline and record last seen
-        const lastSeen = new Date().toISOString();
-        userStatus.set(user, { isOnline: false, lastSeen });
-        
-        // Broadcast offline status to all clients
-        io.emit("user_status_changed", {
-          username: user,
-          isOnline: false,
-          lastSeen,
-        });
-        
+    for (const [user, sockets] of userSockets.entries()) {
+      if (sockets.has(socket.id)) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) {
+          userSockets.delete(user);
+
+          // Mark user as offline and record last seen
+          const lastSeen = new Date().toISOString();
+          userStatus.set(user, { isOnline: false, lastSeen });
+
+          // Broadcast offline status to all clients
+          io.emit("user_status_changed", {
+            username: user,
+            isOnline: false,
+            lastSeen,
+          });
+        } else {
+          // update map
+          userSockets.set(user, sockets);
+        }
+
         break;
       }
     }
@@ -127,7 +200,10 @@ const chatEvents = (io, socket) => {
         forwardedFrom: messageData.forwardedFrom || null,
       });
 
-      io.emit("receive_message", {
+      // Emit only to the conversation room (avoids broadcasting to unrelated clients)
+      const convId = messageData.conversationId || [sender, recipient].sort().join("::");
+      // Preserve any client-generated `tempId` so sender can reconcile optimistic UI
+      io.to(convId).emit("receive_message", {
         _id: savedMessage._id,
         sender: savedMessage.sender,
         recipient: savedMessage.recipient,
@@ -139,9 +215,32 @@ const chatEvents = (io, socket) => {
         forwardedFrom: savedMessage.forwardedFrom || null,
         createdAt: savedMessage.createdAt,
         updatedAt: savedMessage.updatedAt,
+        status: savedMessage.status || "sent", // Track message status
+        tempId: messageData.tempId || null,
       });
 
-      // Create and emit notification to recipient
+      // If recipient currently has a socket in the conversation room, mark delivered now
+      try {
+        const socketsInRoom = await io.in(convId).allSockets();
+        const recipientSockets = userSockets.get(recipient) || new Set();
+        const hasRecipientInRoom = [...recipientSockets].some((sId) => socketsInRoom.has(sId));
+        if (hasRecipientInRoom) {
+          // mark DB and notify sender
+          const Message = (await import("../models/Message.model.js")).default;
+          const msg = await Message.findById(savedMessage._id);
+          if (msg && msg.status !== "delivered") {
+            msg.status = "delivered";
+            await msg.save();
+            io.to(msg.sender).emit("message_status", {
+              _id: msg._id,
+              status: "delivered",
+              conversationId: convId,
+            });
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
       const notificationPayload = {
         owner: recipient,
         actor: sender,
@@ -237,7 +336,10 @@ const chatEvents = (io, socket) => {
       );
       if (msg) {
         const convId = msg.conversationId;
-        io.to(convId).emit("message_deleted_for_everyone", { messageId });
+        io.to(convId).emit("message_deleted_for_everyone", { 
+          messageId,
+          conversationId: convId,
+        });
       }
     } catch (error) {
       socket.emit("error", { message: "Failed to delete message" });
@@ -283,10 +385,8 @@ const chatEvents = (io, socket) => {
         createdAt: forwardedMsg.createdAt,
       };
 
+      // Emit forwarded message only to the target conversation room
       io.to(convId).emit("receive_message", receivePayload);
-
-      // Also emit to the forwarding user so they see the forwarded message in their UI
-      io.to(fromSender).emit("receive_message", receivePayload);
 
       socket.emit("message_forwarded", { messageId, forwardedTo: toRecipient });
     } catch (error) {

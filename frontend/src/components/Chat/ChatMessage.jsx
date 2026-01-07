@@ -9,6 +9,7 @@ const ChatMessage = ({
   onDelete,
   onForward,
   onReply,
+  onEdit,
 }) => {
   if (message.type === "task") {
     const isSentByCurrentUser = message.sender === currentUser;
@@ -34,6 +35,7 @@ const ChatMessage = ({
       onDelete={onDelete}
       onForward={onForward}
       onReply={onReply}
+      onEdit={onEdit}
     />
   );
 };

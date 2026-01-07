@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import chatEvents from "../events/chat.events.js";
+import { setIO } from "../controllers/message.controller.js";
 
 /**
  * Setup Socket.IO server with CORS configuration
@@ -9,11 +10,20 @@ import chatEvents from "../events/chat.events.js";
 const setupSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: "*", // Allow all origins for local network
       methods: ["GET", "POST"],
       credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization"],
     },
+    transports: ["websocket", "polling"], // Support both WebSocket and polling
   });
+
+  // Make the io instance available to controllers that may emit via REST
+  try {
+    setIO(io);
+  } catch (err) {
+    // ignore if setIO not available
+  }
 
   // Handle socket connections
   io.on("connection", (socket) => {

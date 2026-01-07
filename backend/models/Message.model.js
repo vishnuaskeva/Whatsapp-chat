@@ -73,6 +73,17 @@ const messageSchema = new mongoose.Schema(
       ref: 'Message',
       default: null,
     },
+    // Message status: sent, delivered, read
+    status: {
+      type: String,
+      enum: ["sent", "delivered", "read"],
+      default: "sent",
+    },
+    // Edited at: timestamp when message was last edited
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
