@@ -12,6 +12,7 @@ const MessageBubble = ({
   onForward,
   onReply,
   onEdit,
+  searchTerm = "",
 }) => {
   const isSentByCurrentUser = message.sender === currentUser;
   const [showMenu, setShowMenu] = useState(false);
@@ -262,7 +263,31 @@ const MessageBubble = ({
                       margin: "0",
                     }}
                   >
-                    {displayText}
+                    {(() => {
+                      const term = (searchTerm || "").trim();
+                      if (!term) return displayText;
+                      const lower = displayText ? displayText.toLowerCase() : "";
+                      const lterm = term.toLowerCase();
+                      if (!displayText || !lower.includes(lterm)) return displayText;
+                      const parts = [];
+                      let start = 0;
+                      let idx = lower.indexOf(lterm, start);
+                      while (idx !== -1) {
+                        if (idx > start) parts.push({ text: displayText.slice(start, idx), highlight: false });
+                        parts.push({ text: displayText.slice(idx, idx + lterm.length), highlight: true });
+                        start = idx + lterm.length;
+                        idx = lower.indexOf(lterm, start);
+                      }
+                      if (start < displayText.length) parts.push({ text: displayText.slice(start), highlight: false });
+
+                      return parts.map((p, i) =>
+                        p.highlight ? (
+                          <span key={i} style={{ backgroundColor: "#fff59d" }}>{p.text}</span>
+                        ) : (
+                          <span key={i}>{p.text}</span>
+                        )
+                      );
+                    })()}
                   </Text>
                   {isLongText && (
                     <Text

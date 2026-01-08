@@ -40,6 +40,9 @@ const ChatPage = () => {
   const [forwardModalVisible, setForwardModalVisible] = useState(false);
   const [forwardingMessageId, setForwardingMessageId] = useState(null);
   const [userStatusMap, setUserStatusMap] = useState({}); // Track online/last seen per user
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const availableContacts = useMemo(
     () => USERS.filter((user) => user !== currentUser),
@@ -74,6 +77,62 @@ const ChatPage = () => {
   const { data: notificationsData } = useGetNotificationsQuery(currentUser, {
     skip: !currentUser,
   });
+
+  // Multi-select handlers
+  const handleToggleMultiSelect = () => {
+    setIsMultiSelectMode(!isMultiSelectMode);
+    setSelectedMessageIds([]);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchTerm(val || "");
+  };
+
+  const handleSelectMessage = (messageId, isCurrentlySelected) => {
+    if (isCurrentlySelected) {
+      setSelectedMessageIds((prev) =>
+        prev.filter((id) => id !== messageId)
+      );
+    } else {
+      setSelectedMessageIds((prev) => [...prev, messageId]);
+    }
+  };
+
+  const handleMultiDelete = async (messageIds) => {
+    // Delete selected messages for current user
+    messageIds.forEach((msgId) => {
+      handleDeleteMessage(msgId);
+    });
+    setSelectedMessageIds([]);
+  };
+
+  const handleMultiForward = (messageIds) => {
+    if (messageIds.length > 0) {
+      setForwardingMessageId(messageIds);
+      setForwardModalVisible(true);
+    }
+  };
+
+  const handleClearConversation = async (convId) => {
+    if (!convId) return;
+    try {
+      const response = await fetch(
+        `${window.__apiUrl || "http://localhost:5000"}/api/messages/conversation/${convId}/clear`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      if (response.ok) {
+        setMessages([]);
+        setSelectedMessageIds([]);
+        setIsMultiSelectMode(false);
+        notification.success({ message: "Chat cleared successfully" });
+      }
+    } catch (error) {
+      notification.error({ message: "Failed to clear chat", description: error.message });
+    }
+  };
 
   useEffect(() => {
     if (selectedContact === currentUser && notesData) {
@@ -492,6 +551,18 @@ const ChatPage = () => {
     socket.on("message_deleted_for_me", handleMessageDeletedForMe);
     socket.on("message_deleted_for_everyone", handleMessageDeletedForEveryone);
 
+    // Listen for conversation cleared event
+    const handleConversationCleared = (data) => {
+      const { conversationId: clearedConvId } = data;
+      if (clearedConvId === conversationId) {
+        setMessages([]);
+        setSelectedMessageIds([]);
+        setIsMultiSelectMode(false);
+      }
+    };
+
+    socket.on("conversation_cleared", handleConversationCleared);
+
     // Listen for message edited events
     const handleMessageEdited = (data) => {
       const { _id, content, editedAt } = data;
@@ -541,6 +612,7 @@ const ChatPage = () => {
         "message_deleted_for_everyone",
         handleMessageDeletedForEveryone
       );
+      socket.off("conversation_cleared", handleConversationCleared);
       socket.off("message_edited", handleMessageEdited);
       socket.off("message_status", handleMessageStatus);
       socket.off("user_status_changed", handleUserStatusChanged);
@@ -959,6 +1031,13 @@ const ChatPage = () => {
             currentUser={currentUser}
             isOnline={selectedContact && userStatusMap[selectedContact]?.isOnline}
             lastSeen={selectedContact && userStatusMap[selectedContact]?.lastSeen}
+            messages={messages}
+            onToggleMultiSelect={handleToggleMultiSelect}
+            isMultiSelectMode={isMultiSelectMode}
+            onClearConversation={handleClearConversation}
+            conversationId={conversationId}
+            searchTerm={searchTerm}
+            onSearchChange={handleSearchChange}
           />
           <Content
             style={{
@@ -969,6 +1048,7 @@ const ChatPage = () => {
           >
             <ChatMessages
               messages={messages}
+              searchTerm={searchTerm}
               currentUser={currentUser}
               loading={loading}
               selectedContact={selectedContact}
@@ -977,6 +1057,11 @@ const ChatPage = () => {
               onForward={handleForwardMessage}
               onReply={handleReply}
               onEdit={handleEditMessage}
+              isMultiSelectMode={isMultiSelectMode}
+              selectedMessageIds={selectedMessageIds}
+              onSelectMessage={handleSelectMessage}
+              onMultiDelete={handleMultiDelete}
+              onMultiForward={handleMultiForward}
             />
             <ChatInput
               onSendMessage={handleSendMessage}

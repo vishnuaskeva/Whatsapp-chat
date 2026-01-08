@@ -6,6 +6,7 @@ import {
   savePersonalNote,
   setIO,
   editMessage,
+  clearConversation,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
@@ -44,5 +45,11 @@ router.post("/", createMessage);
  * Edit an existing message
  */
 router.put("/:messageId/edit", editMessage);
+
+/**
+ * DELETE /api/messages/conversation/:conversationId/clear
+ * Clear all messages in a conversation
+ */
+router.delete("/conversation/:conversationId/clear", clearConversation);
 
 export default router;

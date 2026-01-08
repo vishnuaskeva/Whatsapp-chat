@@ -1,21 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import socket from "../services/socketClient";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  addNotification,
-  setNotifications,
-} from "../features/notifications/notificationSlice";
+import { addNotification } from "../features/notifications/notificationSlice";
 import { notification as antNotification } from "antd";
-
-const SocketContext = createContext(null);
-
-export const useSocket = () => {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error("useSocket must be used within SocketProvider");
-  }
-  return context;
-};
+import SocketContext from "./SocketShared";
 
 export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -72,4 +60,4 @@ export const SocketProvider = ({ children }) => {
   );
 };
 
-export default SocketContext;
+export default SocketProvider;

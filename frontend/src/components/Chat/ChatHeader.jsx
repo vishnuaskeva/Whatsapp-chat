@@ -1,9 +1,30 @@
-import { Avatar, Typography } from "antd";
+import { Avatar, Typography, Button, Space, Popconfirm, Tooltip } from "antd";
+import { Input } from "antd";
+import {
+  CameraOutlined,
+  DeleteOutlined,
+  CheckSquareOutlined,
+} from "@ant-design/icons";
 import NotificationBell from "./NotificationBell";
+import MediaGallery from "./MediaGallery";
+import { useState } from "react";
 
 const { Title, Text } = Typography;
 
-const ChatHeader = ({ contactName, currentUser, isOnline, lastSeen }) => {
+const ChatHeader = ({
+  contactName,
+  currentUser,
+  isOnline,
+  lastSeen,
+  messages = [],
+  onToggleMultiSelect,
+  isMultiSelectMode = false,
+  onClearConversation,
+  conversationId,
+  searchTerm,
+  onSearchChange,
+}) => {
+  const [galleryVisible, setGalleryVisible] = useState(false);
   const formatLastSeen = (timestamp) => {
     if (!timestamp) return "a while ago";
 
@@ -86,7 +107,55 @@ const ChatHeader = ({ contactName, currentUser, isOnline, lastSeen }) => {
           </Text>
         </div>
       </div>
-      {currentUser && <NotificationBell currentUser={currentUser} />}
+      <Space>
+        <div style={{ minWidth: 220 }}>
+          <Input.Search
+            placeholder="Search messages"
+            allowClear
+            value={searchTerm}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            onSearch={(val) => onSearchChange?.(val)}
+            enterButton={false}
+            size="middle"
+          />
+        </div>
+        {contactName && (
+          <>
+            <Tooltip title="Media Gallery">
+              <Button
+                type="text"
+                icon={<CameraOutlined />}
+                onClick={() => setGalleryVisible(true)}
+              />
+            </Tooltip>
+            <Tooltip title={isMultiSelectMode ? "Deselect" : "Select Multiple"}>
+              <Button
+                type={isMultiSelectMode ? "primary" : "text"}
+                icon={<CheckSquareOutlined />}
+                onClick={onToggleMultiSelect}
+              />
+            </Tooltip>
+            <Popconfirm
+              title="Clear Chat"
+              description="Are you sure you want to delete all messages in this conversation? This cannot be undone."
+              onConfirm={() => onClearConversation?.(conversationId)}
+              okText="Yes"
+              cancelText="No"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="Clear Chat">
+                <Button type="text" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
+          </>
+        )}
+        {currentUser && <NotificationBell currentUser={currentUser} />}
+      </Space>
+      <MediaGallery
+        visible={galleryVisible}
+        onClose={() => setGalleryVisible(false)}
+        messages={messages}
+      />
     </div>
   );
 };

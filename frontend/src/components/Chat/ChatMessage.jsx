@@ -10,6 +10,7 @@ const ChatMessage = ({
   onForward,
   onReply,
   onEdit,
+  searchTerm = "",
 }) => {
   if (message.type === "task") {
     const isSentByCurrentUser = message.sender === currentUser;
@@ -28,6 +29,7 @@ const ChatMessage = ({
 
   return (
     <MessageBubble
+      searchTerm={searchTerm}
       message={message}
       replyMessage={replyMessage}
       currentUser={currentUser}

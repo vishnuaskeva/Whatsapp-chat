@@ -38,14 +38,27 @@ const persistMessage = async ({
     forwardedFrom,
   });
 
-  const savedMessage = await message.save();
+  try {
+    const savedMessage = await message.save();
 
-  if (type === "task") {
-    // task saved
-    // Optionally verify document in DB if needed
+    if (type === "task") {
+      // task saved
+    }
+
+    // Helpful server-side log for debugging persistence issues
+    try {
+      // avoid crashing if console is unavailable
+      console.log("[persistMessage] saved message", savedMessage._id?.toString());
+    } catch (e) {
+      // ignore logging errors
+    }
+
+    return savedMessage;
+  } catch (err) {
+    // Log and rethrow so callers (socket handlers / REST) can respond appropriately
+    console.error("[persistMessage] failed to save message", err && err.message ? err.message : err);
+    throw err;
   }
-
-  return savedMessage;
 };
 
 export const getConversationMessages = async (req, res) => {
@@ -229,6 +242,43 @@ export const editMessage = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Failed to edit message",
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Clear all messages in a conversation
+ */
+export const clearConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        error: "Missing conversationId",
+        message: "conversationId is required",
+      });
+    }
+
+    const result = await Message.deleteMany({ conversationId });
+
+    // Emit socket event to notify clients
+    if (ioInstance) {
+      ioInstance.to(conversationId).emit("conversation_cleared", {
+        conversationId,
+        timestamp: new Date(),
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: "Conversation cleared successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to clear conversation",
       message: error.message,
     });
   }

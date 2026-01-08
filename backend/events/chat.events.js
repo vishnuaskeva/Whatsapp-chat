@@ -200,6 +200,13 @@ const chatEvents = (io, socket) => {
         forwardedFrom: messageData.forwardedFrom || null,
       });
 
+      if (!savedMessage) {
+        // eslint-disable-next-line no-console
+        console.error('[chatEvents] saveMessage returned falsy for', { sender, recipient, content, conversationId: messageData.conversationId });
+        socket.emit('error', { message: 'Failed to persist message' });
+        return;
+      }
+
       // Emit only to the conversation room (avoids broadcasting to unrelated clients)
       const convId = messageData.conversationId || [sender, recipient].sort().join("::");
       // Preserve any client-generated `tempId` so sender can reconcile optimistic UI
